@@ -32,7 +32,9 @@ int main(int argc, char* argv[])
         return -1;
     }
 
-    if (argc > 3 && strcmp("--mutexl", argv[3])) {
+    printf("%s\n", argv[3]);
+
+    if (argc > 3 && strcmp("--mutexl", argv[3]) == 0) {
         mutex = 1;
     }
 
@@ -92,6 +94,7 @@ int main(int argc, char* argv[])
         int cur_count = 0;
         int done = 0;
         int reply_count = 0;
+        int is_doned = 0;
     
         timestamp_t end;
     
@@ -100,7 +103,8 @@ int main(int argc, char* argv[])
         request_cs(&main);
     
         if (mutex) {
-            while (cur_count < count) {
+            while (done != main.process_count) {
+                //printf("%d: cur count: %d; done: %d; time: %d\n", main.id, cur_count, done, get_lamport_time());
                 receive_any(&main, &awaiting);
     
                 switch (awaiting.s_header.s_type)
@@ -117,37 +121,47 @@ int main(int argc, char* argv[])
                 case CS_REPLY:
                     reply_count++;
                     break;
+
                 case DONE:
                     done++;
-    
+                    break;
+
                 default:
                     break;
                 }
     
-                queue_elem cur;
-                peek(&(main.lamport_queue), &cur);
-    
-                if (cur.id == main.id && reply_count == main.process_count - 1) {
-    
-                    sprintf(buffer, log_loop_operation_fmt, main.id, cur_count + 1, count);
-                    print(buffer);
-    
-                    release_cs(&main);
-                    cur_count++;
-                    reply_count = 0;
-    
-                    request_cs(&main);
+                if (cur_count < count) {
+                    queue_elem cur;
+                    peek(&(main.lamport_queue), &cur);
+
+                    if (cur.id == main.id && reply_count == main.process_count - 1) {
+
+                        sprintf(buffer, log_loop_operation_fmt, main.id, cur_count + 1, count);
+                        print(buffer);
+
+                        release_cs(&main);
+                        cur_count++;
+                        reply_count = 0;
+
+                        if (cur_count < count) {
+                            request_cs(&main);
+                            if (main.id == 3)
+                                printf("\n%d: request_cs send; cur count: %d\n", main.id, cur_count);
+                        }
+                    }
                 }
     
-                if (cur_count == count) {
+                if (cur_count == count && !is_doned) {
                     end = get_lamport_time();
                     create_message(DONE, &done_msg, 3, end, main.id, 0);
                     send_multicast(&main, &done_msg);
                     log_done(main.logs[0], end, main.id, 0);
 
-                    printf("%d: done\n");
+                    done++;
+                    is_doned = 1;
                 }
             }
+            printf("\n%d: doned;\n", main.id);
         }
         else {
     
@@ -160,8 +174,6 @@ int main(int argc, char* argv[])
             create_message(DONE, &done_msg, 3, end, main.id, 0);
             send(&main, PARENT_ID, &done_msg);
             log_done(main.logs[0], end, main.id, 0);
-    
-            wait_all_type(main.logs[0], &main, DONE, main.process_count - 1);
         }  
         exit(0);
     }

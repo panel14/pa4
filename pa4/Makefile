@@ -3,9 +3,9 @@ CFLAGS=-std=c99 -Wall -pedantic
 SOURCES=pa4.c bank_robbery.c ipc.c log.c process.c lamport_clock.c lamport_exclude.c queue.c
 OBJECTS=$(SOURCES: .c=.o)
 EXECUTABLE=pa4
-EXEARGS=-p 3 --mutexl
+EXEARGS=-p 9 --mutexl
 
-all: rebuild run
+all: rebuild
 
 rebuild: clean build
 

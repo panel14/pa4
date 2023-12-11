@@ -52,7 +52,7 @@ void insert(queue_elem elem, queue* queue) {
 }
 
 int peek(queue* queue, queue_elem* peeked) {
-	if (queue->size > 1) {
+	if (queue->size > 0) {
 		*peeked = queue->queue[0];
 		return 0;
 	}
@@ -61,10 +61,10 @@ int peek(queue* queue, queue_elem* peeked) {
 
 int pop(queue* queue) {
 
-	if (queue->size > 1) {
+	if (queue->size > 0) {
 		
 		for (int i = 1; i < queue->size; i++) {
-			swap(&(queue->queue[i]), &(queue->queue[i - 1]));
+			queue->queue[i - 1] = queue->queue[i];
 		}
 		queue->size--;
 		return 0;

@@ -4,8 +4,8 @@
 
 int request_cs(const void* self) {
 	process_t* process = (process_t*)self;
-	Message request;
 
+	Message request;
 	create_message(CS_REQUEST, &request, 0);
 	send_multicast(process, &request);
 

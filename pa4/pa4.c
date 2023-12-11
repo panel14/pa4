@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+//#include <time.h>
 #include "lamport_clock.h"
 #include "process.h"
 #include "pa2345.h"
@@ -22,6 +23,8 @@ void static wait_all_exit() {
 
 int main(int argc, char* argv[])
 {
+    //clock_t begin = clock();
+
     process_t main;
     int mutex = 0;
 
@@ -45,23 +48,23 @@ int main(int argc, char* argv[])
 
     //Queue Test
     //queue q1, q2;
-    //init(&q1); init(&q2);
+    //init(&q1); //init(&q2);
     //
-    //queue_elem e1 = { .id = 1, .time = 3 };
-    //queue_elem e2 = { .id = 1, .time = 2 };
-    //queue_elem e3 = { .id = 2, .time = 1 };
-    //queue_elem e4 = { .id = 3, .time = 1 };
+    //queue_elem e1 = { .id = 2, .time = 68 };
+    //queue_elem e2 = { .id = 3, .time = 71 };
+    ////queue_elem e3 = { .id = 2, .time = 1 };
+    ////queue_elem e4 = { .id = 3, .time = 1 };
     //
-    //insert(e1, &q1); insert(e4, &q2);
-    //insert(e2, &q1); insert(e3, &q2);
-    //insert(e3, &q1); insert(e2, &q2);
-    //insert(e4, &q1); insert(e1, &q2);
+    //insert(e1, &q1); //insert(e4, &q2);
+    //insert(e2, &q1); //insert(e3, &q2);
+    ////insert(e3, &q1); //insert(e2, &q2);
+    ////insert(e4, &q1); //insert(e1, &q2);
     //
-    //print_queue(&q1); print_queue(&q2);
+    //print_queue(&q1); //print_queue(&q2);
     //
     //queue_elem peeked;
-    //peek(&q1, &peeked);
     //pop(&q1);
+    //peek(&q1, &peeked);
     //printf("<id: %d; time: %d>\n", peeked.id, peeked.time);
     //print_queue(&q1);
 
@@ -104,7 +107,7 @@ int main(int argc, char* argv[])
     
         if (mutex) {
             while (done != main.process_count) {
-                //printf("%d: cur count: %d; done: %d; time: %d\n", main.id, cur_count, done, get_lamport_time());
+    
                 receive_any(&main, &awaiting);
     
                 switch (awaiting.s_header.s_type)
@@ -121,11 +124,11 @@ int main(int argc, char* argv[])
                 case CS_REPLY:
                     reply_count++;
                     break;
-
+    
                 case DONE:
                     done++;
                     break;
-
+    
                 default:
                     break;
                 }
@@ -133,20 +136,19 @@ int main(int argc, char* argv[])
                 if (cur_count < count) {
                     queue_elem cur;
                     peek(&(main.lamport_queue), &cur);
-
-                    if (cur.id == main.id && reply_count == main.process_count - 1) {
-
+    
+                    if ((cur.id == main.id) && (reply_count == main.process_count - 1)) {
+    
                         sprintf(buffer, log_loop_operation_fmt, main.id, cur_count + 1, count);
                         print(buffer);
-
+                        log_loop_operation(main.logs[0], main.id, cur_count + 1, count);
+    
                         release_cs(&main);
                         cur_count++;
                         reply_count = 0;
-
+    
                         if (cur_count < count) {
                             request_cs(&main);
-                            if (main.id == 3)
-                                printf("\n%d: request_cs send; cur count: %d\n", main.id, cur_count);
                         }
                     }
                 }
@@ -156,12 +158,12 @@ int main(int argc, char* argv[])
                     create_message(DONE, &done_msg, 3, end, main.id, 0);
                     send_multicast(&main, &done_msg);
                     log_done(main.logs[0], end, main.id, 0);
-
+    
                     done++;
                     is_doned = 1;
                 }
+                awaiting.s_header.s_type = -1;
             }
-            printf("\n%d: doned;\n", main.id);
         }
         else {
     
@@ -180,6 +182,11 @@ int main(int argc, char* argv[])
     
     log_close(fds);
     free_all_pipes(&main);
+
+    //clock_t end = clock();
+    //double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
+    //
+    //printf("Execution time: %f (s)\n", time_spent);
 
     return 0;
 }

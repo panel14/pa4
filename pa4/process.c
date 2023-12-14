@@ -9,12 +9,21 @@
 
 void wait_all_type(int fd, process_t* process, MessageType type, int count) {
 	int received = 0;
-	while (received != process->process_count) {
+	int from = -1;
+	while (received != count) {
 		Message msg;
-		receive_any(process, &msg);
+		from = -1;
+		while (from == -1) {
+			from = receive_any(process, &msg);
+		}
 
 		if (msg.s_header.s_type == type) {
+			//printf("%d: from: %d", process->id, from);
 			received++;
+		}
+
+		if (type == CS_REQUEST) {
+			printf("%d: request in all type awaiting\n", process->id);
 		}
 	}
 

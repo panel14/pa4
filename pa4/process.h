@@ -18,7 +18,6 @@ typedef struct {
 	size_t process_count;
 	pipe_t** pipes_fd;
 	queue lamport_queue;
-	queue_elem last_received;
 	int logs[2];
 } process_t;
 

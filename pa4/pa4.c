@@ -35,8 +35,6 @@ int main(int argc, char* argv[])
         return -1;
     }
 
-    printf("%s\n", argv[3]);
-
     if (argc > 3 && strcmp("--mutexl", argv[3]) == 0) {
         mutex = 1;
     }
@@ -69,7 +67,7 @@ int main(int argc, char* argv[])
     //print_queue(&q1);
 
     prepare_proc(&main, proc_count);
-    
+
     if (main.id == PARENT_ID) {
         log_started(main.logs[0], get_lamport_time(), main.id, main.pid, getppid(), 0);
         wait_all_type(main.logs[0], &main, STARTED, main.process_count);
@@ -78,108 +76,116 @@ int main(int argc, char* argv[])
     }
     else {
         char buffer[MAX_MES_LEN];
-    
+
         queue queue;
         init(&queue);
         main.lamport_queue = queue;
-    
+
         Message start;
-        timestamp_t time = get_lamport_time();
         create_message(STARTED, &start, 4, main.id, main.pid, getppid(), 0);
-        send(&main, PARENT_ID, &start);
-        log_started(main.logs[0], time, main.id, main.pid, getppid(), 0);
-    
-        Message awaiting;
-        Message reply;  
+        send_multicast(&main, &start);
+        log_started(main.logs[0], start.s_header.s_local_time, main.id, main.pid, getppid(), 0);
+
+        wait_all_type(main.logs[0], &main, STARTED, main.process_count - 1);
+        Message reply;
         Message done_msg;
-    
+
         int count = main.id * 5;
         int cur_count = 0;
         int done = 0;
         int reply_count = 0;
         int is_doned = 0;
-    
+
+        queue_elem new_el = {0};
         timestamp_t end;
-    
+
         create_message(CS_REPLY, &reply, 0);
-    
+
         request_cs(&main);
-    
+
         if (mutex) {
             while (done != main.process_count) {
-    
-                receive_any(&main, &awaiting);
-    
+                Message awaiting;
+                int from = -1;
+
+                while (from == -1) {
+                    from = receive_any(&main, &awaiting);
+                }
+                //printf("%d: res after receive from: %d: time: %d\n", main.id, from, awaiting.s_header.s_local_time);
                 switch (awaiting.s_header.s_type)
                 {
                 case CS_REQUEST:
-                    insert(main.last_received, &(main.lamport_queue));
-                    send(&main, main.last_received.id, &reply);
+                    printf("%d: request from: %d; time: %d\n", main.id, from, awaiting.s_header.s_local_time);
+
+                    new_el.id = from; new_el.time = awaiting.s_header.s_local_time;
+                    insert(new_el, &(main.lamport_queue));
+                    send(&main, from, &reply);
                     break;
-    
+
                 case CS_RELEASE:
                     pop(&(main.lamport_queue));
                     break;
-    
+
                 case CS_REPLY:
                     reply_count++;
                     break;
-    
+
                 case DONE:
                     done++;
                     break;
-    
+
                 default:
                     break;
                 }
-    
+
                 if (cur_count < count) {
                     queue_elem cur;
                     peek(&(main.lamport_queue), &cur);
-    
+
                     if ((cur.id == main.id) && (reply_count == main.process_count - 1)) {
-    
+
                         sprintf(buffer, log_loop_operation_fmt, main.id, cur_count + 1, count);
                         print(buffer);
                         log_loop_operation(main.logs[0], main.id, cur_count + 1, count);
-    
+
                         release_cs(&main);
                         cur_count++;
                         reply_count = 0;
-    
+
                         if (cur_count < count) {
                             request_cs(&main);
                         }
                     }
                 }
-    
+
                 if (cur_count == count && !is_doned) {
                     end = get_lamport_time();
                     create_message(DONE, &done_msg, 3, end, main.id, 0);
                     send_multicast(&main, &done_msg);
                     log_done(main.logs[0], end, main.id, 0);
-    
+
                     done++;
                     is_doned = 1;
                 }
-                awaiting.s_header.s_type = -1;
             }
         }
         else {
-    
+
             for (int i = 0; i < count; i++) {
                 sprintf(buffer, log_loop_operation_fmt, main.id, i, count);
                 print(buffer);
             }
-    
+
             end = get_lamport_time();
             create_message(DONE, &done_msg, 3, end, main.id, 0);
             send(&main, PARENT_ID, &done_msg);
             log_done(main.logs[0], end, main.id, 0);
-        }  
+
+            wait_all_type(main.logs[0], &main, DONE, main.process_count - 1);
+        }
         exit(0);
     }
-    
+
     log_close(fds);
     free_all_pipes(&main);
 

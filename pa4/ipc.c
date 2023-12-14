@@ -1,4 +1,4 @@
-#include <fcntl.h>
+
 #include <stdio.h>
 #include <unistd.h>
 #include "ipc.h"
@@ -29,33 +29,43 @@ int receive(void* self, local_id from, Message* msg) {
 	pipe_t pipe_s = process->pipes_fd[from][process->id];
 
 	int h_read = read(pipe_s.r_fd, msg, sizeof(MessageHeader));
-
-	if (h_read == sizeof(MessageHeader) && msg->s_header.s_payload_len != 0) {
+	
+	if (h_read == sizeof(MessageHeader) && msg->s_header.s_payload_len != 0 ) {
 		read(pipe_s.r_fd, msg->s_payload, msg->s_header.s_payload_len);
 	}
 
 	if (h_read > 0) {
 		lamport_rule2(msg->s_header.s_local_time);
 		lamport_rule1();
+
+		return from;
 	}
 
-	queue_elem elem = { .id = from, .time = msg->s_header.s_local_time };
-	process->last_received = elem;
-
-	return (h_read == -1 || h_read == 0) ? -1 : 0;
+	return -1;
 }
 
 int receive_any(void* self, Message* msg) {
 	process_t* process = self;
+	for (local_id i = 1; i < process->process_count + 1; i++) {
+		if (i != process->id) {
+			pipe_t pipe_s = process->pipes_fd[i][process->id];
 
-	while (1) {
-		for (local_id i = 0; i < process->process_count + 1; i++) {
-			if (i != process->id) {
-				int status = receive(self, i, msg);
-				if (status != -1) {
-					return 0;
+			int h_read = read(pipe_s.r_fd, msg, sizeof(MessageHeader));
+
+			if (h_read == sizeof(MessageHeader) /*&& msg->s_header.s_payload_len > 0*/) {
+				h_read = read(pipe_s.r_fd, msg->s_payload, msg->s_header.s_payload_len);
+
+				if (h_read == msg->s_header.s_payload_len) {
+					lamport_rule2(msg->s_header.s_local_time);
+					lamport_rule1();
+
+					if (msg->s_header.s_type == CS_REQUEST)
+						printf("%d: received from: %d; time: %d\n", process->id, i, msg->s_header.s_local_time);
+
+					return i;
 				}
 			}
 		}
 	}
+	return -1;
 }

@@ -5,7 +5,7 @@ OBJECTS=$(SOURCES: .c=.o)
 EXECUTABLE=pa4
 EXEARGS=-p 9 --mutexl
 
-all: rebuild
+all: rebuild run
 
 rebuild: clean build
 

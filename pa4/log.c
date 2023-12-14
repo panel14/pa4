@@ -26,7 +26,17 @@ void static log_message(int fd, const char* fmt, int num, ...) {
 
 	char buff[MAX_MES_LEN];
 	int len = vsnprintf(buff, MAX_MES_LEN, fmt, valist);
-	//printf("%s", buff);
+	printf("%s", buff);
+	write(fd, buff, len);
+	va_end(valist);
+}
+
+void static log_message_np(int fd, const char* fmt, int num, ...) {
+	va_list valist;
+	va_start(valist, num);
+
+	char buff[MAX_MES_LEN];
+	int len = vsnprintf(buff, MAX_MES_LEN, fmt, valist);
 	write(fd, buff, len);
 	va_end(valist);
 }
@@ -44,7 +54,7 @@ void log_close_pipe(int fd, int p_fd, local_id id) {
 }
 
 void log_loop_operation(int fd, local_id local, int i, int count) {
-	log_message(fd, log_loop_operation_fmt, 3, local, i, count);
+	log_message_np(fd, log_loop_operation_fmt, 3, local, i, count);
 }
 
 void log_started(int fd, timestamp_t time, local_id local, pid_t current_pid, pid_t parrent_pid, balance_t balance) {

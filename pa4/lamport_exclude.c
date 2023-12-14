@@ -7,10 +7,11 @@ int request_cs(const void* self) {
 
 	Message request;
 	create_message(CS_REQUEST, &request, 0);
-	send_multicast(process, &request);
 
 	queue_elem new_elem = { .id = process->id, .time = request.s_header.s_local_time };
 	insert(new_elem, &(process->lamport_queue));
+
+	send_multicast(process, &request);
 
 	return 0;
 }
